@@ -7,11 +7,16 @@ const { authenticateToken, authorize } = require('../middleware/auth.middleware'
 const router = express.Router();
 
 // Initialize Razorpay
-const razorpay = new Razorpay({
-  key_id: process.env.RAZORPAY_KEY_ID,
-  key_secret: process.env.RAZORPAY_KEY_SECRET
-});
+let razorpay = null;
 
+if (process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET) {
+  razorpay = new Razorpay({
+    key_id: process.env.RAZORPAY_KEY_ID,
+    key_secret: process.env.RAZORPAY_KEY_SECRET,
+  });
+} else {
+  console.warn("⚠️ Razorpay disabled: keys not found");
+}
 // Get all plans
 router.get('/plans', async (req, res) => {
   try {
@@ -88,7 +93,15 @@ router.post('/create-order', authenticateToken, authorize('business_admin'), asy
       }
     };
 
-    const order = await razorpay.orders.create(options);
+    if (!razorpay) {
+  return res.status(503).json({
+    success: false,
+    message: "Payments temporarily disabled",
+  });
+}
+
+const order = await razorpay.orders.create({...});
+
 
     // Store transaction
     await query(
